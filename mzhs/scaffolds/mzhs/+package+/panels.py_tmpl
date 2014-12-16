@@ -1,0 +1,6 @@
+from pyramid_layout.panel import panel_config
+
+
+@panel_config('test_panel', renderer='panels/test_panel.jinja2')
+def profile(context, request):
+    return {}

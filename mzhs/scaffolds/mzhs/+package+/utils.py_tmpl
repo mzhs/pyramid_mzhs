@@ -1,0 +1,7 @@
+import functools
+import datetime
+
+from {{project}} import settings
+
+
+now = functools.partial(datetime.datetime.now, tz=settings.timezone)

@@ -1,0 +1,57 @@
+from pyramid.config import Configurator
+from pyramid.events import NewRequest, subscriber
+from pyramid.authentication import AuthTktAuthenticationPolicy
+from pyramid.authorization import ACLAuthorizationPolicy
+from pyramid.session import check_csrf_token
+
+from pyramid_beaker import session_factory_from_settings
+
+from sqlalchemy import engine_from_config
+from sqlalchemy.pool import NullPool
+
+from {{project}}.security import RootFactory
+from {{project}}.models import (
+    DBSession,
+    Base,
+    User,
+    )
+
+
+# @subscriber(NewRequest)
+# def check_csrf(event):
+#     if event.request.method != 'GET':
+#         check_csrf_token(event.request)
+#
+#
+# def get_user(request):
+#     user_id = request.authenticated_userid
+#     if user_id:
+#         return User.by_id(user_id)
+#     return None
+
+
+def main(global_config, **settings):
+    engine = engine_from_config(settings, 'sqlalchemy.', poolclass=NullPool)
+    DBSession.configure(bind=engine)
+    Base.metadata.bind = engine
+
+    authentication_policy = AuthTktAuthenticationPolicy(
+        'randomstring',
+        hashalg='sha512')
+    authorization_policy = ACLAuthorizationPolicy()
+
+    config = Configurator(
+        settings=settings,
+        authentication_policy=authentication_policy,
+        authorization_policy=authorization_policy,
+        session_factory=session_factory_from_settings(settings),
+        root_factory=RootFactory)
+
+    config.add_jinja2_search_path('{{project}}:templates/')
+    config.add_static_view('static', 'frontend/static', cache_max_age=3600)
+    #config.add_request_method(get_user, 'user', reify=True)
+
+    config.add_route('home',  '/')
+
+    config.scan()
+    return config.make_wsgi_app()

@@ -1,0 +1,90 @@
+###
+# app configuration
+# http://docs.pylonsproject.org/projects/pyramid/en/latest/narr/environment.html
+###
+
+[app:main]
+use = egg:{{project}}
+
+pyramid.reload_templates = true
+pyramid.debug_authorization = false
+pyramid.debug_notfound = false
+pyramid.debug_routematch = false
+pyramid.default_locale_name = en
+pyramid.includes =
+    pyramid_debugtoolbar
+    pyramid_tm
+    pyramid_jinja2
+    pyramid_storage
+    pyramid_layout
+
+
+jinja2.filters =
+    markdown = cms.filters:markdown
+    strip_html = cms.filters:strip_html
+    nl2br = cms.filters:nl2br
+
+sqlalchemy.url = sqlite:///%(here)s/{{project}}.sqlite
+sqlalchemy.echo = true
+
+session.type = file
+session.data_dir = %(here)s/data/session/data
+session.lock_dir = %(here)s/data/session/lock
+session.key = cms
+session.secret = yoursecret
+session.cookie_on_exception = true
+session.httponly = true
+
+storage.base_path = %(here)s/{{project}}/frontend/static
+
+# By default, the toolbar only appears for clients from IP addresses
+# '127.0.0.1' and '::1'.
+
+###
+# wsgi server configuration
+###
+
+[server:main]
+use = egg:waitress#main
+host = 0.0.0.0
+port = 8000
+
+###
+# logging configuration
+# http://docs.pylonsproject.org/projects/pyramid/en/latest/narr/logging.html
+###
+
+[loggers]
+keys = root, {{package_logger}}, sqlalchemy
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = INFO
+handlers = console
+
+[logger_{{package_logger}}]
+level = DEBUG
+handlers =
+qualname = {{package}}
+
+[logger_sqlalchemy]
+level = INFO
+handlers =
+qualname = sqlalchemy.engine
+# "level = INFO" logs SQL queries.
+# "level = DEBUG" logs SQL queries and results.
+# "level = WARN" logs neither.  (Recommended for production systems.)
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(asctime)s %(levelname)-5.5s [%(name)s][%(threadName)s] %(message)s

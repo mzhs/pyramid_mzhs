@@ -1,0 +1,92 @@
+from pyramid.decorator import reify
+
+from sqlalchemy import (
+    Table,
+    Column,
+    Integer,
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    )
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import (
+    scoped_session,
+    sessionmaker,
+    validates,
+    relationship,
+    backref,
+    joinedload,
+    )
+
+from zope.sqlalchemy import ZopeTransactionExtension
+
+from passlib.apps import custom_app_context as pwd_context
+
+from {{project}}.utils import now
+
+DBSession = scoped_session(sessionmaker(extension=ZopeTransactionExtension()))
+Base = declarative_base()
+
+
+class MyBase(Base):
+    __abstract__ = True
+    id = Column(Integer, primary_key=True)
+
+    @classmethod
+    def by_id(cls, id):
+        return DBSession.query(cls).get(id)
+
+
+class TimeStampMixin:
+    created_at = Column(DateTime, default=now, nullable=False)
+    updated_at = Column(DateTime, default=now, onupdate=now,
+                        nullable=False)
+
+
+class User(MyBase, TimeStampMixin):
+    __tablename__ = 'users'
+
+    display_name = Column(String(20), nullable=False)
+    screen_name = Column(String(15), nullable=False, unique=True)
+    email = Column(String(100), nullable=False, unique=True)
+    _password = Column(String(128), nullable=False)
+    is_admin = Column(Boolean(), default=False)
+
+    def __repr__(self):
+        return ("<User(id='%s', display_name='%s' screen_name='%s', email='%s')>") % (
+                    self.id, self.display_name, self.screen_name, self.email)
+
+    @property
+    def password(self):
+        return self._password
+
+    @password.setter
+    def password(self, password):
+        self._password = pwd_context.encrypt(password)
+
+    @classmethod
+    def by_identifier(cls, identifier):
+        if '@' in identifier:
+            return cls.by_email(identifier)
+        return cls.by_screen_name(identifier)
+
+    @classmethod
+    def by_screen_name(cls, screen_name):
+        return DBSession\
+            .query(User)\
+            .filter(User.screen_name == screen_name)\
+            .first()
+
+    @classmethod
+    def by_email(cls, email):
+        return DBSession\
+            .query(User)\
+            .filter(User.email == email)\
+            .first()
+
+    def verify_password(self, raw_password):
+        return pwd_context.verify(raw_password, self.password)

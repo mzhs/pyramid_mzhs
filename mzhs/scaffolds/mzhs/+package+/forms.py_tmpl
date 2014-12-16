@@ -1,0 +1,139 @@
+import re
+
+from wtforms import (
+    StringField,
+    TextAreaField,
+    SelectField,
+    PasswordField,
+    FieldList,
+    )
+
+from wtforms.form import Form
+
+from wtforms.validators import (
+    ValidationError,
+    StopValidation,
+    Required,
+    Required,
+    NumberRange,
+    Length,
+    Email,
+    EqualTo,
+    )
+
+from {{project}}.models import (
+    DBSession,
+    )
+
+
+def strip_filter(s):
+    return s.strip() if s else None
+
+
+class Required:
+
+    def __init__(self, message=None):
+        if not message:
+            message = '内容が入力されていません。'
+        self.message = message
+
+    def __call__(self, form, field):
+        if not field.data or type(field.data) != str or not field.data.strip():
+            raise StopValidation(self.message)
+
+
+class Unique:
+
+    def __init__(self, model, model_field, message=None):
+        self.model = model
+        self.model_field = model_field
+        if not message:
+            message = 'すでに使用されています。'
+        self.message = message
+
+    def __call__(self, form, field):
+        check = DBSession\
+                    .query(self.model)\
+                    .filter(self.model_field == field.data)\
+                    .count()
+        if check > 0:
+            raise StopValidation(self.message)
+
+
+class Whitelist:
+
+    def __init__(self, whitelist='a-zA-Z0-9_', message=None):
+        if not message:
+            message = '使用できるのは半角英数字とアンダースコアのみです。'
+        self.message = message
+        self.p = r'\A[' + whitelist + ']+\Z'
+
+    def __call__(self, form, field):
+        data = field.data or ''
+        if re.match(self.p, data) is None:
+            raise StopValidation(self.message)
+
+
+class Length:
+
+    def __init__(self, min, max, message=None):
+        self.min = min
+        self.max = max
+        if not message:
+            message = '%i～%i文字を入力してください。' % (self.min, self.max)
+        self.message = message
+
+    def __call__(self, form, field):
+        data = field.data or ''
+        l = len(str(data))
+        if l < self.min or self.max < l:
+            raise ValidationError(self.message)
+
+
+class SignupForm(Form):
+
+    display_name = StringField(
+        '名前',
+        filters=[strip_filter],
+        validators=[Required()]
+        )
+
+    screen_name = StringField(
+        'ユーザー名',
+        filters=[strip_filter],
+        validators=[Required()]
+        )
+
+    email = StringField(
+        'メールアドレス',
+        filters=[strip_filter],
+        validators=[Email('メールアドレスが正しくありません。')]
+        )
+
+    password = PasswordField(
+        'パスワード',
+        validators=[
+            Required('入力されていません。'),
+            Length(6, 128),
+            EqualTo('password_confirm',
+                    message='パスワードが一致していません。'),
+            ],
+        )
+
+    password_confirm = PasswordField(
+        'パスワード再入力',
+        )
+
+
+class LoginForm(Form):
+
+    identifier = StringField(
+        'ユーザー名、またはメールアドレス',
+        filters=[strip_filter],
+        validators=[Required()],
+        )
+
+    password = PasswordField(
+        'パスワード',
+        validators=[Required()],
+        )
